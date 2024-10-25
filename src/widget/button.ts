@@ -2,21 +2,24 @@ import { insideHitTestRectangle, measureText } from "../utility";
 import { SKElement, SKElementProps } from "./element";
 import { Style } from "./style";
 import { SKEvent, SKMouseEvent } from "../events";
-
 import { requestMouseFocus } from "../dispatch";
 
-export type SKButtonProps = SKElementProps & { text?: string };
+export type SKButtonProps = SKElementProps & { 
+  text?: string;
+  buttonFill?: string;  // Added buttonFill property
+};
 
 export class SKButton extends SKElement {
-  constructor({ 
-    text = "", 
-    fill = "lightgrey",
+  constructor({
+    text = "",
+    fill = "lightblue",  // Default fill color is light blue
+    buttonFill,  // Accept buttonFill property
     ...elementProps
   }: SKButtonProps = {}) {
     super(elementProps);
-    this.padding = Style.textPadding;
     this.text = text;
-    this.fill = fill;
+    this.fill = buttonFill || fill;  // Use buttonFill if provided, otherwise fallback to fill
+    this.padding = Style.textPadding;
     this.calculateBasis();
     this.doLayout();
   }
@@ -29,11 +32,10 @@ export class SKButton extends SKElement {
   }
   set text(t: string) {
     this._text = t;
-    // console.log(`SKButton text = ${this.text} ${this.width} ${this.height}`);
     this.setMinimalSize(this.width, this.height);
   }
 
-  protected _radius = 4;
+  protected _radius = 8;  // Rounded corners
   set radius(r: number) {
     this._radius = r;
   }
@@ -41,7 +43,8 @@ export class SKButton extends SKElement {
     return this._radius;
   }
 
-  protected _font = Style.font;
+  // Updated the font to Times New Roman
+  protected _font = "bold 16px 'Times New Roman', serif";
   set font(s: string) {
     this._font = s;
     this.setMinimalSize(this.width, this.height);
@@ -50,24 +53,22 @@ export class SKButton extends SKElement {
     return this._font;
   }
 
-  protected _fontColour = Style.fontColour;
+  protected _fontColour = "white";  // Default font color is white for contrast
   set fontColour(c: string) {
     this._fontColour = c;
   }
   get fontColour() {
     return this._fontColour;
-  }
+  }  
 
-  protected _highlightColour = Style.highlightColour;
-  set highlightColour(hc: string){
+  protected _highlightColour = "#aaa";  // Highlight color
+  set highlightColour(hc: string) {
     this._highlightColour = hc;
   }
-
 
   setMinimalSize(width?: number, height?: number) {
     width = width || this.width;
     height = height || this.height;
-    // need this if w or h not specified
     const m = measureText(this.text, this._font);
 
     if (!m) {
@@ -75,46 +76,37 @@ export class SKButton extends SKElement {
       return;
     }
 
-    this.height = height || m.height + this.padding * 2;
-
+    // Increase the button height slightly
+    this.height = height || m.height + this.padding * 2 + 10;  // Adjusted for more height
     this.width = width || m.width + this.padding * 2;
-    // enforce a minimum width here (if no width specified)
-    if (!width) this.width = Math.max(this.width, 80);
+
+    if (!width) this.width = Math.max(this.width, 100);  // Ensure minimum button width
   }
 
   handleMouseEvent(me: SKMouseEvent) {
-    // console.log(`${this.text} ${me.type}`);
-
     switch (me.type) {
       case "mousedown":
         this.state = "down";
         requestMouseFocus(this);
         return true;
-        break;
       case "mouseup":
         this.state = "hover";
-        // return true if a listener was registered
         return this.sendEvent({
           source: this,
           timeStamp: me.timeStamp,
           type: "action",
         } as SKEvent);
-        break;
       case "mouseenter":
         this.state = "hover";
         return true;
-        break;
       case "mouseexit":
         this.state = "idle";
         return true;
-        break;
     }
     return false;
   }
 
   draw(gc: CanvasRenderingContext2D) {
-    // to save typing "this" so much
-
     gc.save();
 
     const w = this.paddingBox.width;
@@ -122,28 +114,27 @@ export class SKButton extends SKElement {
 
     gc.translate(this.margin, this.margin);
 
-    // thick highlight rect
-    if (this.state == "hover" || this.state == "down") {
-      gc.beginPath();
-      gc.roundRect(this.x, this.y, w, h, this.radius);
-      gc.strokeStyle = this._highlightColour;
-      gc.lineWidth = 8;
-      gc.stroke();
-    }
+    // Add button shadow for depth effect
+    gc.shadowColor = "rgba(0, 0, 0, 0.15)";
+    gc.shadowBlur = 6;
+    gc.shadowOffsetX = 3;
+    gc.shadowOffsetY = 3;
 
-    // normal background
+    // Draw the background with a rounded rectangle and smoother color transitions
     gc.beginPath();
-    gc.roundRect(this.x, this.y, w, h, this.radius);
-    gc.fillStyle =
-      this.state == "down" ? this._highlightColour : this.fill;
-    gc.strokeStyle = this.border;
-    // change fill to show down state
-    gc.lineWidth = this.state == "down" ? 4 : 2;
+    gc.roundRect(this.x, this.y, w, h, this._radius);
+    gc.fillStyle = this.state === "down" ? this._highlightColour : this.fill;
     gc.fill();
-    gc.stroke();
-    gc.clip(); // clip text if it's wider than text area
 
-    // button label
+    // Draw the border
+    gc.strokeStyle = this.state === "down" ? this._highlightColour : "#333";
+    gc.lineWidth = this.state === "down" ? 3 : 1;
+    gc.stroke();
+
+    // Remove shadow for the text rendering
+    gc.shadowColor = "transparent";
+
+    // Draw the text in the center of the button with Times New Roman
     gc.font = this._font;
     gc.fillStyle = this._fontColour;
     gc.textAlign = "center";
@@ -152,7 +143,6 @@ export class SKButton extends SKElement {
 
     gc.restore();
 
-    // element draws debug viz if flag is set
     super.draw(gc);
   }
 
